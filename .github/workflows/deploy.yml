@@ -3,26 +3,26 @@ on:
   push:
     paths:
       - 'config/ludus/ludus-range-config.yml'
-
-  # Allow manual triggering of the workflow
   workflow_dispatch:
 
 jobs:
   deploy_range:
     runs-on: ubuntu-latest
     permissions:
-      contents: read    # only need read access to code
+      contents: read    # Only need read access to code
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          persist-credentials: false  # don't store GitHub token in git config (not needed after checkout)
-          fetch-depth: 0             # optional: full history if Ludus CLI needs it (0) or use 1 for shallow
+          persist-credentials: false  # Don't store GitHub token in git config
+          fetch-depth: 0              # Use full history if needed
 
       - name: Install WireGuard
-        run: sudo apt-get update && sudo apt-get install -y wireguard
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wireguard
 
-      - name: Write WireGuard config
+      - name: Write WireGuard Config
         env:
           WIREGUARD_CONFIG: ${{ secrets.WIREGUARD_CONFIG }}
         shell: bash
@@ -33,9 +33,15 @@ jobs:
 
       - name: Install Ludus CLI non-interactively
         run: |
-          printf "Y\nY\n" | curl -s https://ludus.cloud/install | bash
+          # Ensure that the 'script' command is available (it should be by default on Ubuntu)
+          if ! command -v script >/dev/null; then
+            echo "Error: script command not found. Aborting."
+            exit 1
+          fi
+          # Use 'script' to allocate a pseudo-TTY so the installer can process piped answers.
+          script -q -c 'printf "Y\nY\n" | curl -s https://ludus.cloud/install | bash' /dev/null
 
-      - name: Set Ludus API key
+      - name: Set Ludus API Key
         env:
           LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
         run: echo "LUDUS_API_KEY configured for Ludus CLI"
