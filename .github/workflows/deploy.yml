@@ -1,4 +1,4 @@
-name: Deploy Ludus Range
+name: Deploy Range Config
 on:
   push:
     paths:
@@ -12,15 +12,15 @@ jobs:
       contents: read
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           fetch-depth: 0
 
       - name: Install WireGuard
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wireguard
+          sudo apt update
+          sudo apt install -y wireguard
 
       - name: Write WireGuard Config
         shell: bash
