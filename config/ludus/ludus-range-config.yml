@@ -1,0 +1,78 @@
+ludus:
+  - vm_name: "{{ range_id }}-zabbix-server"
+    hostname: "{{ range_id }}-zabbix-server"
+    template: debian-12-x64-server-template
+    vlan: 100
+    ip_last_octet: 10
+    ram_gb: 8
+    cpus: 4
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+    roles:
+      - goffinet.ludus_zabbix_server
+    role_vars:
+      ludus_mysql_zabbix_password: "secure_zabbix_password_test"
+  - vm_name: "{{ range_id }}-elastic"
+    hostname: "{{ range_id }}-elastic"
+    template: debian-12-x64-server-template
+    vlan: 100
+    ip_last_octet: 20
+    ram_gb: 8
+    cpus: 4
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+    roles:
+      - badsectorlabs.ludus_elastic_container
+    role_vars:
+      ludus_elastic_password: "thisisapassword"
+  - vm_name: "{{ range_id }}-snmp-1"
+    hostname: "{{ range_id }}-snmp-1"
+    template: rocky-9-x64-server-template
+    vlan: 108
+    ip_last_octet: 108
+    ram_gb: 2
+    cpus: 1
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+  - vm_name: "{{ range_id }}-zabbix-client"
+    hostname: "{{ range_id }}-zabbix-client"
+    template: rocky-9-x64-server-template
+    vlan: 108
+    ip_last_octet: 102
+    ram_gb: 2
+    cpus: 1
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+  - vm_name: "{{ range_id }}-kali"
+    hostname: "{{ range_id }}-kali"
+    template: kali-x64-desktop-template
+    vlan: 99
+    ip_last_octet: 1
+    ram_gb: 4
+    cpus: 2
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+  - vm_name: "{{ range_id }}-win11-22h2-x64-enterprise"
+    hostname: "{{ range_id }}-win11-22h2-x64-enterprise"
+    template: win11-22h2-x64-enterprise-template
+    vlan: 109
+    ip_last_octet: 96
+    ram_gb: 8
+    cpus: 4
+    windows:
+      install_additional_tools: false
+    testing:
+      snapshot: false
+      block_internet: false
+    roles:
+      - badsectorlabs.ludus_elastic_agent

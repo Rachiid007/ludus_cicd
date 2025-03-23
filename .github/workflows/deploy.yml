@@ -1,0 +1,48 @@
+name: Deploy Ludus Range
+on:
+  push:
+    paths:
+      - 'config/ludus/ludus-range-config.yml'
+
+jobs:
+  deploy_range:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read    # only need read access to code
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false  # don't store GitHub token in git config (not needed after checkout)
+          fetch-depth: 0             # optional: full history if Ludus CLI needs it (0) or use 1 for shallow
+
+      - name: Install WireGuard
+        run: sudo apt-get update && sudo apt-get install -y wireguard
+
+      - name: Write WireGuard config
+        env:
+          WIREGUARD_CONFIG: ${{ secrets.WIREGUARD_CONFIG }}
+        shell: bash
+        run: printf "%s" "$WIREGUARD_CONFIG" > wg0.conf
+
+      - name: Activate WireGuard VPN
+        run: sudo wg-quick up ./wg0.conf
+
+      - name: Install Ludus CLI
+        run: curl -s https://ludus.cloud/install | bash
+
+      - name: Set Ludus API key
+        env:
+          LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
+        run: echo "LUDUS_API_KEY configured for Ludus CLI"
+
+      - name: Deploy Ludus Range
+        env:
+          LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
+        run: |
+          ludus range config set -f ./config/ludus/ludus-range-config.yml
+          ludus range deploy
+
+      - name: Disconnect WireGuard
+        if: always()
+        run: sudo wg-quick down ./wg0.conf
