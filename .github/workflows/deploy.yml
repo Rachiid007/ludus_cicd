@@ -26,7 +26,7 @@ jobs:
         shell: bash
         env:
           WIREGUARD_CONFIG: ${{ secrets.WIREGUARD_CONFIG }}
-        run: printf "%s" "$WIREGUARD_CONFIG" > wg0.conf
+        run: echo "$WIREGUARD_CONFIG" | base64 --decode > wg0.conf
 
       - name: Activate WireGuard VPN
         run: sudo wg-quick up ./wg0.conf
