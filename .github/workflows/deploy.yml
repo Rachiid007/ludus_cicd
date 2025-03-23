@@ -1,4 +1,5 @@
 name: Deploy Range Config
+
 on:
   push:
     paths:
@@ -10,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -19,44 +22,51 @@ jobs:
 
       - name: Install WireGuard
         run: |
-          sudo apt update
-          sudo apt install -y wireguard
+          sudo apt-get update -y
+          sudo apt-get install -y wireguard
 
       - name: Write WireGuard Config
         shell: bash
         env:
           WIREGUARD_CONFIG: ${{ secrets.WIREGUARD_CONFIG }}
-        run: echo "$WIREGUARD_CONFIG" | base64 --decode > wg0.conf
+        run: |
+          echo "$WIREGUARD_CONFIG" | base64 --decode > wg0.conf
+          chmod 600 wg0.conf
 
       - name: Activate WireGuard VPN
         run: sudo wg-quick up ./wg0.conf
 
-      - name: Install Ludus CLI non-interactively
+      - name: Install Ludus CLI Non-Interactively
         run: |
+          set -e
+          # Ensure 'script' command is available
           if ! command -v script >/dev/null; then
-            echo "Error: script command not found. Aborting."
+            echo "Error: 'script' command not found. Aborting."
             exit 1
           fi
+          # Install Ludus CLI non-interactively
           script -q -c 'printf "y\ny\ny\n" | curl -s https://ludus.cloud/install | bash' /dev/null
 
-      - name: Confirm Ludus API key is set
+      - name: Validate Ludus API Key
         run: |
+          set -e
           if [ -z "$LUDUS_API_KEY" ]; then
-            echo "LUDUS_API_KEY is empty!"
+            echo "Error: LUDUS_API_KEY is not set!"
             exit 1
-          else
-            echo "LUDUS_API_KEY is set."
           fi
-        env:
-          LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
+          echo "LUDUS_API_KEY is set."
 
       - name: Deploy Ludus Range
-        env:
-          LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
         run: |
+          set -e
           ludus range config set -f ./config/ludus/ludus-range-config.yml
           ludus range deploy
 
       - name: Disconnect WireGuard
         if: always()
-        run: sudo wg-quick down ./wg0.conf
+        run: |
+          if [ -f wg0.conf ]; then
+            sudo wg-quick down ./wg0.conf
+          else
+            echo "wg0.conf not found. Skipping disconnect."
+          fi
