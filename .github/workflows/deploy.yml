@@ -25,7 +25,7 @@ jobs:
       - name: Write WireGuard Config
         shell: bash
         env:
-          WIREGUARD_CONFIG: ${{ vars.WIREGUARD_CONFIG }}
+          WIREGUARD_CONFIG: ${{ secrets.WIREGUARD_CONFIG }}
         run: printf "%s" "$WIREGUARD_CONFIG" > wg0.conf
 
       - name: Activate WireGuard VPN
@@ -37,7 +37,7 @@ jobs:
             echo "Error: script command not found. Aborting."
             exit 1
           fi
-          script -q -c 'printf "Y\nY\nY\n" | curl -s https://ludus.cloud/install | bash' /dev/null
+          script -q -c 'printf "y\ny\ny\n" | curl -s https://ludus.cloud/install | bash' /dev/null
 
       - name: Confirm Ludus API key is set
         run: |
@@ -47,10 +47,12 @@ jobs:
           else
             echo "LUDUS_API_KEY is set."
           fi
+        env:
+          LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
 
       - name: Deploy Ludus Range
         env:
-          LUDUS_API_KEY: ${{ vars.LUDUS_API_KEY }}
+          LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
         run: |
           ludus range config set -f ./config/ludus/ludus-range-config.yml
           ludus range deploy
