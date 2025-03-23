@@ -8,16 +8,15 @@ on:
 jobs:
   deploy_range:
     runs-on: ubuntu-latest
-    env:
-      LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
+    environment: production
     permissions:
-      contents: read    # Only need read access to code
+      contents: read
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          persist-credentials: false  # Don't store GitHub token in git config
-          fetch-depth: 0              # Use full history if needed
+          persist-credentials: false
+          fetch-depth: 0
 
       - name: Install WireGuard
         run: |
@@ -25,9 +24,9 @@ jobs:
           sudo apt-get install -y wireguard
 
       - name: Write WireGuard Config
+        shell: bash
         env:
           WIREGUARD_CONFIG: ${{ secrets.WIREGUARD_CONFIG }}
-        shell: bash
         run: printf "%s" "$WIREGUARD_CONFIG" > wg0.conf
 
       - name: Activate WireGuard VPN
@@ -35,24 +34,24 @@ jobs:
 
       - name: Install Ludus CLI non-interactively
         run: |
-          # Verify that the 'script' command exists (it should be on ubuntu-latest)
           if ! command -v script >/dev/null; then
             echo "Error: script command not found. Aborting."
             exit 1
           fi
-          # Run the installer inside a pseudo-TTY so it can process piped responses.
-          script -q -c 'printf "Y\nY\n" | curl -s https://ludus.cloud/install | bash' /dev/null
-
-      - name: Set Ludus API key non-interactively
-        run: |
-          # Use a pseudo-TTY to feed the API key into the 'ludus apikey' command.
-          # This ensures the key is registered in the CLI's keyring.
-          script -q -c 'printf "%s\n" "$LUDUS_API_KEY" | ludus apikey' /dev/null
+          script -q -c 'printf "Y\nY\nY\n" | curl -s https://ludus.cloud/install | bash' /dev/null
 
       - name: Confirm Ludus API key is set
-        run: echo "Ludus API key successfully set in CLI"
+        run: |
+          if [ -z "$LUDUS_API_KEY" ]; then
+            echo "LUDUS_API_KEY is empty!"
+            exit 1
+          else
+            echo "LUDUS_API_KEY is set."
+          fi
 
       - name: Deploy Ludus Range
+        env:
+          LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
         run: |
           ludus range config set -f ./config/ludus/ludus-range-config.yml
           ludus range deploy
