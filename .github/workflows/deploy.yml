@@ -25,7 +25,7 @@ jobs:
       - name: Write WireGuard Config
         shell: bash
         env:
-          WIREGUARD_CONFIG: ${{ secrets.WIREGUARD_CONFIG }}
+          WIREGUARD_CONFIG: ${{ vars.WIREGUARD_CONFIG }}
         run: printf "%s" "$WIREGUARD_CONFIG" > wg0.conf
 
       - name: Activate WireGuard VPN
@@ -50,7 +50,7 @@ jobs:
 
       - name: Deploy Ludus Range
         env:
-          LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
+          LUDUS_API_KEY: ${{ vars.LUDUS_API_KEY }}
         run: |
           ludus range config set -f ./config/ludus/ludus-range-config.yml
           ludus range deploy
