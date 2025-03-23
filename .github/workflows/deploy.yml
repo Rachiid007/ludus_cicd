@@ -40,15 +40,20 @@ jobs:
             echo "Error: script command not found. Aborting."
             exit 1
           fi
-          # Run the installer inside a pseudo-TTY to allow piped answers.
+          # Run the installer inside a pseudo-TTY so it can process piped responses.
           script -q -c 'printf "Y\nY\n" | curl -s https://ludus.cloud/install | bash' /dev/null
 
-      - name: Confirm Ludus API Key is Set
-        run: echo "LUDUS_API_KEY is set for Ludus CLI"
+      - name: Set Ludus API key non-interactively
+        run: |
+          # Use a pseudo-TTY to feed the API key into the 'ludus apikey' command.
+          # This ensures the key is registered in the CLI's keyring.
+          script -q -c 'printf "%s\n" "$LUDUS_API_KEY" | ludus apikey' /dev/null
+
+      - name: Confirm Ludus API key is set
+        run: echo "Ludus API key successfully set in CLI"
 
       - name: Deploy Ludus Range
         run: |
-          # Use the provided API key from environment
           ludus range config set -f ./config/ludus/ludus-range-config.yml
           ludus range deploy
 
