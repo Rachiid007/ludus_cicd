@@ -8,6 +8,8 @@ on:
 jobs:
   deploy_range:
     runs-on: ubuntu-latest
+    env:
+      LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
     permissions:
       contents: read    # Only need read access to code
     steps:
@@ -33,23 +35,20 @@ jobs:
 
       - name: Install Ludus CLI non-interactively
         run: |
-          # Ensure that the 'script' command is available (it should be by default on Ubuntu)
+          # Verify that the 'script' command exists (it should be on ubuntu-latest)
           if ! command -v script >/dev/null; then
             echo "Error: script command not found. Aborting."
             exit 1
           fi
-          # Use 'script' to allocate a pseudo-TTY so the installer can process piped answers.
+          # Run the installer inside a pseudo-TTY to allow piped answers.
           script -q -c 'printf "Y\nY\n" | curl -s https://ludus.cloud/install | bash' /dev/null
 
-      - name: Set Ludus API Key
-        env:
-          LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
-        run: echo "LUDUS_API_KEY configured for Ludus CLI"
+      - name: Confirm Ludus API Key is Set
+        run: echo "LUDUS_API_KEY is set for Ludus CLI"
 
       - name: Deploy Ludus Range
-        env:
-          LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
         run: |
+          # Use the provided API key from environment
           ludus range config set -f ./config/ludus/ludus-range-config.yml
           ludus range deploy
 
