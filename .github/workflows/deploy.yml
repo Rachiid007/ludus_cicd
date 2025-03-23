@@ -11,13 +11,13 @@ jobs:
   deploy_range:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: read    # only need read access to code
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
         with:
-          persist-credentials: false
-          fetch-depth: 0
+          persist-credentials: false  # don't store GitHub token in git config (not needed after checkout)
+          fetch-depth: 0             # optional: full history if Ludus CLI needs it (0) or use 1 for shallow
 
       - name: Install WireGuard
         run: sudo apt-get update && sudo apt-get install -y wireguard
@@ -25,36 +25,28 @@ jobs:
       - name: Write WireGuard config
         env:
           WIREGUARD_CONFIG: ${{ secrets.WIREGUARD_CONFIG }}
+        shell: bash
         run: printf "%s" "$WIREGUARD_CONFIG" > wg0.conf
 
       - name: Activate WireGuard VPN
         run: sudo wg-quick up ./wg0.conf
 
-      - name: Install Ludus CLI non-interactively with expect
+      - name: Install Ludus CLI non-interactively
         run: |
-          sudo apt-get update && sudo apt-get install -y expect
-          expect << 'EOF'
-            # Spawn the installer running as root
-            spawn curl -s https://ludus.cloud/install | sudo bash
-            # Wait for the prompt asking about shell completions so tab works with the 'ludus' command?
-            expect "Would you like to install shell completions so tab works with the 'ludus' command?"
-            # Send "n" followed by a carriage return to skip completions
-            send "n\r"
-            expect eof
-          EOF
+          printf "Y\nY\n" | curl -s https://ludus.cloud/install | bash
 
-            - name: Set Ludus API key
-              env:
-                LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
-              run: echo "LUDUS_API_KEY configured for Ludus CLI"
+      - name: Set Ludus API key
+        env:
+          LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
+        run: echo "LUDUS_API_KEY configured for Ludus CLI"
 
-            - name: Deploy Ludus Range
-              env:
-                LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
-              run: |
-                ludus range config set -f ./config/ludus/ludus-range-config.yml
-                ludus range deploy
+      - name: Deploy Ludus Range
+        env:
+          LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
+        run: |
+          ludus range config set -f ./config/ludus/ludus-range-config.yml
+          ludus range deploy
 
-            - name: Disconnect WireGuard
-              if: always()
-              run: sudo wg-quick down ./wg0.conf
+      - name: Disconnect WireGuard
+        if: always()
+        run: sudo wg-quick down ./wg0.conf
