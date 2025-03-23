@@ -4,6 +4,9 @@ on:
     paths:
       - 'config/ludus/ludus-range-config.yml'
 
+  # Allow manual triggering of the workflow
+  workflow_dispatch:
+
 jobs:
   deploy_range:
     runs-on: ubuntu-latest
@@ -31,27 +34,27 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y expect
           expect << 'EOF'
-          # Spawn the installer running as root
-          spawn curl -s https://ludus.cloud/install | sudo bash
-          # Wait for the prompt asking about shell completions
-          expect "Would you like to install shell completions so tab works with the 'ludus' command?"
-          # Send "n" followed by a carriage return to skip completions
-          send "n\r"
-          expect eof
-EOF
+            # Spawn the installer running as root
+            spawn curl -s https://ludus.cloud/install | sudo bash
+            # Wait for the prompt asking about shell completions so tab works with the 'ludus' command?
+            expect "Would you like to install shell completions so tab works with the 'ludus' command?"
+            # Send "n" followed by a carriage return to skip completions
+            send "n\r"
+            expect eof
+          EOF
 
-      - name: Set Ludus API key
-        env:
-          LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
-        run: echo "LUDUS_API_KEY configured for Ludus CLI"
+            - name: Set Ludus API key
+              env:
+                LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
+              run: echo "LUDUS_API_KEY configured for Ludus CLI"
 
-      - name: Deploy Ludus Range
-        env:
-          LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
-        run: |
-          ludus range config set -f ./config/ludus/ludus-range-config.yml
-          ludus range deploy
+            - name: Deploy Ludus Range
+              env:
+                LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
+              run: |
+                ludus range config set -f ./config/ludus/ludus-range-config.yml
+                ludus range deploy
 
-      - name: Disconnect WireGuard
-        if: always()
-        run: sudo wg-quick down ./wg0.conf
+            - name: Disconnect WireGuard
+              if: always()
+              run: sudo wg-quick down ./wg0.conf
