@@ -9,6 +9,7 @@ on:
 jobs:
   deploy_range:
     runs-on: ubuntu-latest
+    timeout-minutes: 180
     permissions:
       contents: read
     env:
@@ -20,10 +21,10 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Install WireGuard
+      - name: Install WireGuard & jq
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y wireguard
+          sudo apt-get install -y wireguard jq
 
       - name: Write WireGuard Config
         shell: bash
@@ -59,8 +60,29 @@ jobs:
       - name: Deploy Ludus Range
         run: |
           set -e
+          # Set the configuration and initiate deployment.
           ludus range config set -f ./config/ludus/ludus-range-config.yml
           ludus range deploy
+
+          # Wait until the deployment is no longer in the "DEPLOYING" state.
+          echo "Waiting for deployment to finish..."
+          while [[ "$(ludus range status --json | jq -r '.rangeState')" == "DEPLOYING" ]]; do
+            sleep 10
+          done
+
+          # Capture the final state.
+          FINAL_STATE=$(ludus range status --json | jq -r '.rangeState')
+          echo "Final deployment state: ${FINAL_STATE}"
+
+          # Display logs and exit accordingly.
+          if [[ "${FINAL_STATE}" == "SUCCESS" ]]; then
+            echo "Deployment succeeded. Displaying logs:"
+            ludus range logs
+          else
+            echo "Deployment failed or ended in an unexpected state. Displaying logs:"
+            ludus range logs
+            exit 1
+          fi
 
       - name: Disconnect WireGuard
         if: always()
