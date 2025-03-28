@@ -11,15 +11,37 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     permissions:
-      contents: read
+      contents: write
     env:
       LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          persist-credentials: false
+          persist-credentials: true
           fetch-depth: 0
+
+      - name: Validate and Format YAML Config
+        run: |
+          echo "Validating YAML syntax (initial run)..."
+          # Run initial validation; warnings/errors are printed
+          yamllint config/ludus/ludus-range-config.yml || true
+
+          echo "Removing trailing whitespace..."
+          sed -i 's/[[:space:]]*$//' config/ludus/ludus-range-config.yml
+
+          echo "Installing latest yq for YAML reformatting..."
+          # Download the latest go-based yq binary (v4)
+          wget https://github.com/mikefarah/yq/releases/download/v4.45.1/yq_linux_amd64 -O /usr/local/bin/yq
+          chmod +x /usr/local/bin/yq
+
+          echo "Reformatting YAML file using yq..."
+          yq eval . -i config/ludus/ludus-range-config.yml
+
+          echo "Re-validating YAML syntax with custom configuration..."
+          # Use a custom yamllint configuration: disable document-start and trailing-spaces;
+          # allow longer lines (max 120 characters) with warnings.
+          yamllint --config-data "{extends: default, rules: {document-start: disable, trailing-spaces: disable, line-length: {max: 120, level: warning}}}" config/ludus/ludus-range-config.yml
 
       - name: Install WireGuard & jq
         run: |
@@ -92,3 +114,17 @@ jobs:
           else
             echo "wg0.conf not found. Skipping disconnect."
           fi
+
+      - name: Run Python Script to update README.md range-config
+        env:
+          LUDUS_INPUT_FILE: config/ludus/ludus-range-config.yml
+          LUDUS_OUTPUT_FILE: config/ludus/README.md
+        run: python3 config/ludus/ludus-range-config.py
+
+      - name: Commit and push updated README.md
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          git add config/ludus/README.md
+          git commit -m "Update README.md via Python script" || echo "No changes to commit"
+          git push

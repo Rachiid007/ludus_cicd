@@ -14,7 +14,7 @@ ludus:
       - goffinet.ludus_zabbix_server
     role_vars:
       ludus_mysql_zabbix_password: "secure_zabbix_password_test"
-      
+
   - vm_name: "{{ range_id }}-elastic"
     hostname: "{{ range_id }}-elastic"
     template: debian-12-x64-server-template
@@ -54,7 +54,7 @@ ludus:
     testing:
       snapshot: false
       block_internet: false
-      
+
   - vm_name: "{{ range_id }}-zabbix-client"
     hostname: "{{ range_id }}-zabbix-client"
     template: rocky-9-x64-server-template
@@ -66,7 +66,7 @@ ludus:
     testing:
       snapshot: false
       block_internet: false
-      
+
   - vm_name: "{{ range_id }}-kali"
     hostname: "{{ range_id }}-kali"
     template: kali-x64-desktop-template
@@ -78,7 +78,7 @@ ludus:
     testing:
       snapshot: false
       block_internet: false
-      
+
   - vm_name: "{{ range_id }}-win11-22h2-x64-enterprise"
     hostname: "{{ range_id }}-win11-22h2-x64-enterprise"
     template: win11-22h2-x64-enterprise-template
@@ -93,7 +93,7 @@ ludus:
       block_internet: false
     roles:
       - badsectorlabs.ludus_elastic_agent
-      
+
   - vm_name: "{{ range_id }}-ubuntu-2404-vm"
     hostname: "{{ range_id }}-ubuntu2404"
     template: ubuntu-24.04-x64-server-template
@@ -106,16 +106,31 @@ ludus:
     testing:              # Optional: For testing mode settings
       snapshot: true
       block_internet: true
-      
-  - vm_name: "{{ range_id }}-ubuntu-2404-vm-2-test"
-    hostname: "{{ range_id }}-ubuntu2404-vm-2-test"
+
+  - vm_name: "{{ range_id }}-ansible"
+    hostname: "{{ range_id }}-ansible"
     template: ubuntu-24.04-x64-server-template
-    vlan: 109
-    ip_last_octet: 98
-    force_ip: true        # Use the defined IP even if qemu-guest-agent returns others
+    vlan: 101
+    ip_last_octet: 17
+    ram_gb: 2
+    cpus: 1
+    linux: true
+    testing:
+      snapshot: false
+      block_internet: false
+    roles:
+      - geerlingguy.ansible-role-ansible
+
+  - vm_name: "{{ range_id }}-nginx-server"
+    hostname: "{{ range_id }}-nginx-server"
+    template: debian-12-x64-server-template
+    vlan: 108
+    ip_last_octet: 55
     ram_gb: 4
     cpus: 2
     linux: true
-    testing:              # Optional: For testing mode settings
-      snapshot: true
-      block_internet: true
+    testing:
+      snapshot: false
+      block_internet: false
+    roles:
+      - geerlingguy.nginx
