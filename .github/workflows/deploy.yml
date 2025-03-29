@@ -16,12 +16,17 @@ jobs:
       LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
     steps:
       - name: Install prerequisite tools
-        run: sudo apt-get install -y bsdutils expect
+        run: sudo apt update && sudo apt install -y expect
+
       - name: Install Ludus CLI
         run: |
           /usr/bin/expect <<EOD
-          spawn bash -c "curl -s https://ludus.cloud/install | bash"
+          set timeout 120
+          spawn bash -c "curl -fsSL https://ludus.cloud/install | bash -"
           expect "Would you like to install shell completions so tab works with the 'ludus' command?"
           send "y\r"
           expect eof
           EOD
+
+      - name: Verify Ludus installation
+        run: ludus --version
