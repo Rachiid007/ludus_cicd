@@ -1,0 +1,131 @@
+name: Deploy Range Config
+
+on:
+  push:
+    # the Path of your ludus range-config file
+    paths:
+      - 'config/ludus/ludus-range-config.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy_range:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    permissions:
+      contents: write
+    env:
+      LUDUS_API_KEY: ${{ secrets.LUDUS_API_KEY }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Validate and Format YAML Config
+        run: |
+          # Exit immediately on errors, undefined variables, or pipeline errors
+          set -euo pipefail
+
+          # Define variables for the config file and yq version
+          CONFIG_FILE="config/ludus/ludus-range-config.yml"
+          YQ_VERSION="v4.45.1"
+
+          # Check if the configuration file exists
+          if [ ! -f "$CONFIG_FILE" ]; then
+            echo "Config file not found: $CONFIG_FILE"
+            exit 1
+          fi
+
+          echo "Validating YAML syntax (initial run)..."
+          yamllint "$CONFIG_FILE"
+
+          echo "Removing trailing whitespace..."
+          sed -i 's/[[:space:]]*$//' "$CONFIG_FILE"
+
+          echo "Installing latest yq..."
+          curl -L "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64" -o /usr/local/bin/yq
+          chmod +x /usr/local/bin/yq
+
+          echo "Reformatting YAML file using yq..."
+          yq eval . -i "$CONFIG_FILE"
+
+          echo "Inserting blank lines between list items..."
+          awk 'NR==1 {print} NR > 1 {if ($0 ~ /^  -/) {print ""} print}' "$CONFIG_FILE" > temp.yml && mv temp.yml "$CONFIG_FILE"
+
+          echo "Re-validating YAML syntax with custom configuration..."
+          yamllint --config-data "{extends: default, rules: {trailing-spaces: disable, line-length: {max: 120, level: warning}}}" "$CONFIG_FILE"
+
+      - name: Install WireGuard & jq
+        run: |
+          sudo apt update -y
+          sudo apt install -y wireguard jq expect
+
+      - name: Write WireGuard Config
+        shell: bash
+        env:
+          WIREGUARD_CONFIG: ${{ secrets.WIREGUARD_CONFIG }}
+        run: |
+          echo "$WIREGUARD_CONFIG" | base64 --decode > wg0.conf
+          chmod 600 wg0.conf
+
+      - name: Activate WireGuard VPN
+        run: sudo wg-quick up ./wg0.conf
+
+      - name: Install Ludus CLI
+        run: |
+          /usr/bin/expect <<EOD
+          set timeout 120
+          spawn bash -c "curl -fsSL https://ludus.cloud/install | bash -"
+          expect "Would you like to install shell completions so tab works with the 'ludus' command?"
+          send "y\r"
+          expect eof
+          EOD
+
+      - name: Verify Ludus installation
+        run: ludus version
+
+      - name: Validate Ludus API Key
+        run: |
+          set -e
+          if [ -z "$LUDUS_API_KEY" ]; then
+            echo "Error: LUDUS_API_KEY is not set!"
+            exit 1
+          fi
+          echo "LUDUS_API_KEY is set."
+
+      - name: Deploy Ludus Range
+        run: |
+          set -e
+          # Set the configuration and initiate deployment.
+          ludus range config set -f ./config/ludus/ludus-range-config.yml
+          ludus range deploy
+
+          # Wait until the deployment is no longer in the "DEPLOYING" state.
+          echo "Waiting for deployment to finish..."
+          while [[ "$(ludus range status --json | jq -r '.rangeState')" == "DEPLOYING" ]]; do
+            sleep 10
+          done
+
+          # Capture the final state.
+          FINAL_STATE=$(ludus range status --json | jq -r '.rangeState')
+          echo "Final deployment state: ${FINAL_STATE}"
+
+          # Display logs and exit accordingly.
+          if [[ "${FINAL_STATE}" == "SUCCESS" ]]; then
+            echo "Deployment succeeded. Displaying logs:"
+            ludus range logs
+          else
+            echo "Deployment failed or ended in an unexpected state. Displaying logs:"
+            ludus range logs
+            exit 1
+          fi
+
+      - name: Disconnect WireGuard
+        if: always()
+        run: |
+          if [ -f wg0.conf ]; then
+            sudo wg-quick down ./wg0.conf
+          else
+            echo "wg0.conf not found. Skipping disconnect."
+          fi
